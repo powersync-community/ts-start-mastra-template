@@ -12,7 +12,11 @@ function Chat() {
   const status = useStatus()
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [conversationId] = useState(() => crypto.randomUUID())
+  const [conversationId] = useState(() => {
+    const id = crypto.randomUUID()
+    console.log('[Chat] Mounted with new conversationId:', id)
+    return id
+  })
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const { data: messages } = useQuery(
@@ -21,8 +25,17 @@ function Chat() {
   )
 
   useEffect(() => {
+    console.log('[Chat] Messages query result:', {
+      conversationId,
+      count: messages?.length ?? 0,
+      messageIds: messages?.map((m) => m.id) ?? [],
+      statusConnected: status.connected,
+    })
+  }, [messages, conversationId, status.connected])
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, loading])
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return
@@ -30,6 +43,7 @@ function Chat() {
     setInput('')
     setLoading(true)
 
+    console.log('[Chat] Inserting user message:', { conversationId, contentLength: content.length })
     await db.execute(
       'INSERT INTO messages (id, role, content, conversation_id, created_at) VALUES (uuid(), ?, ?, ?, ?)',
       ['user', content, conversationId, new Date().toISOString()],
@@ -44,12 +58,14 @@ function Chat() {
 
       const { text } = await chat({ data: { messages: history } })
 
+      console.log('[Chat] Inserting assistant message:', { conversationId, contentLength: text.length })
       await db.execute(
         'INSERT INTO messages (id, role, content, conversation_id, created_at) VALUES (uuid(), ?, ?, ?, ?)',
         ['assistant', text, conversationId, new Date().toISOString()],
       )
     } catch (e) {
-      console.error('Chat error:', e)
+      console.error('[Chat] Chat error:', e)
+      console.log('[Chat] Inserting error fallback message:', { conversationId })
       await db.execute(
         'INSERT INTO messages (id, role, content, conversation_id, created_at) VALUES (uuid(), ?, ?, ?, ?)',
         ['assistant', 'Sorry, something went wrong.', conversationId, new Date().toISOString()],
@@ -61,6 +77,12 @@ function Chat() {
 
   return (
     <div style={styles.container}>
+      <style>{`
+        @keyframes typing-bounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-4px); opacity: 1; }
+        }
+      `}</style>
       <header style={styles.header}>
         <h1 style={styles.title}>Chat</h1>
         <span style={styles.status}>
@@ -95,6 +117,24 @@ function Chat() {
             <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
           </div>
         ))}
+        {loading && (
+          <div
+            style={{
+              ...styles.bubble,
+              alignSelf: 'flex-start',
+              background: '#262626',
+              borderBottomRightRadius: 16,
+              borderBottomLeftRadius: 4,
+            }}
+          >
+            <span style={styles.roleLabel}>AI</span>
+            <span style={styles.typingIndicator}>
+              <span style={styles.typingDot} />
+              <span style={{ ...styles.typingDot, animationDelay: '0.2s' }} />
+              <span style={{ ...styles.typingDot, animationDelay: '0.4s' }} />
+            </span>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -175,6 +215,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: '#888',
     marginBottom: 2,
+  },
+  typingIndicator: {
+    display: 'flex',
+    gap: 4,
+    alignItems: 'center',
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    background: '#888',
+    animation: 'typing-bounce 1.4s ease-in-out infinite',
   },
   form: {
     display: 'flex',
