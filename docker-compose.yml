@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chat
+    command: postgres -c wal_level=logical
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  powersync:
+    image: journeyapps/powersync-service:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      PS_DATA_SOURCE_URI: "postgresql://postgres:postgres@postgres:5432/chat"
+      PS_STORAGE_URI: "mongodb://mongo:27017/powersync"
+      PS_ADMIN_TOKEN: "powersync-dev-admin-token"
+      PS_JWT_SECRET_B64: "bXktcG93ZXJzeW5jLWRldi1qd3Qtc2VjcmV0LWtleSE"
+    volumes:
+      - ./powersync:/config
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        POWERSYNC_SYNC_CONFIG_B64=$$(cat /config/sync-config.yaml | base64 -w0 2>/dev/null || cat /config/sync-config.yaml | base64 | tr -d '\n')
+        export POWERSYNC_SYNC_CONFIG_B64
+        exec /powersync-service start -c /config/service.yaml
+
+volumes:
+  pgdata:
+  mongodata:

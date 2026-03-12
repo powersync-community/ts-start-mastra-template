@@ -1,0 +1,7 @@
+config:
+  edition: 3
+
+streams:
+  messages:
+    auto_subscribe: true
+    query: SELECT * FROM messages

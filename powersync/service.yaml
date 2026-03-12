@@ -1,0 +1,20 @@
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_DATA_SOURCE_URI
+      sslmode: disable
+
+storage:
+  type: mongodb
+  uri: !env PS_STORAGE_URI
+
+client_auth:
+  jwks:
+    keys:
+      - kty: oct
+        k: !env PS_JWT_SECRET_B64
+        alg: HS256
+
+api:
+  tokens:
+    - !env PS_ADMIN_TOKEN
