@@ -3,17 +3,30 @@ import type {
   PowerSyncCredentials,
   AbstractPowerSyncDatabase,
 } from '@powersync/web'
+import { getPowerSyncCredentials, uploadPowerSyncData } from './server-fns'
 
 export class Connector implements PowerSyncBackendConnector {
   async fetchCredentials(): Promise<PowerSyncCredentials> {
-    return {
-      endpoint: '',
-      token: '',
-      expiresAt: new Date(Date.now() + 3600_000),
-    }
+    return getPowerSyncCredentials()
   }
 
-  async uploadData(_database: AbstractPowerSyncDatabase): Promise<void> {
-    // No-op: local-only mode, no sync backend
+  async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
+    const transaction = await database.getNextCrudTransaction()
+    if (!transaction) return
+    try {
+      const operations = transaction.crud.map((op) => ({
+        id: op.id,
+        op: op.op,
+        table: op.table,
+        opData: op.opData,
+      }))
+      const result = await uploadPowerSyncData({ data: { operations } })
+      if (!result.success) {
+        console.warn('[Connector] Upload had errors:', result.error)
+      }
+      await transaction.complete()
+    } catch (ex) {
+      throw ex
+    }
   }
 }

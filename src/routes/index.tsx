@@ -13,8 +13,10 @@ function Chat() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [conversationId] = useState(() => {
+    const stored = localStorage.getItem('conversationId')
+    if (stored) return stored
     const id = crypto.randomUUID()
-    console.log('[Chat] Mounted with new conversationId:', id)
+    localStorage.setItem('conversationId', id)
     return id
   })
   const bottomRef = useRef<HTMLDivElement>(null)

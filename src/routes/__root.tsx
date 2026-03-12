@@ -9,7 +9,7 @@ import {
 import { PowerSyncContext } from '@powersync/react'
 import { PowerSyncDatabase } from '@powersync/web'
 import { AppSchema } from '~/lib/schema'
-// Connector unused in local-only mode
+import { Connector } from '~/lib/connector'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -37,7 +37,7 @@ function RootComponent() {
       schema: AppSchema,
       database: { dbFilename: 'chat.db' },
     })
-    // Local-only mode — no PowerSync service to connect to
+    database.connect(new Connector())
     setDb(database)
     const checkDb = async () => {
       try {

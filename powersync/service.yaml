@@ -14,6 +14,8 @@ client_auth:
       - kty: oct
         k: !env PS_JWT_SECRET_B64
         alg: HS256
+  audience:
+    - powersync
 
 api:
   tokens:
